@@ -1,1254 +1,932 @@
-// تكوين Firebase
+// تكوين Firebase الجديد
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+
+// تكوين Firebase الجديد مع حصة جديدة
 const firebaseConfig = {
-  apiKey: "AIzaSyD_GXKC3z1vXBtexx2dYQAhRt2DGRd1A",
-  authDomain: "ppe-management-system2026.firebaseapp.com",
-  projectId: "ppe-management-system2026",
-  storageBucket: "ppe-management-system2026.appspot.com",
-  messagingSenderId: "153719589284",
-  appId: "1:153719589284:web:e8f4fa9e39e98324f49931",
-  measurementId: "G-N2WYJZJD6"
+  apiKey: "AIzaSyCnvyDGvukqbM9rMvwnFHk2983IEWc_yfs",
+  authDomain: "ppe-system-v2-2026.firebaseapp.com",
+  projectId: "ppe-system-v2-2026",
+  storageBucket: "ppe-system-v2-2026.firebasestorage.app",
+  messagingSenderId: "296968854279",
+  appId: "1:296968854279:web:e5d8d1e38d49146ff22ca2",
+  measurementId: "G-390KMKGBSX"
 };
 
 // تهيئة Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-// متغيرات البيانات
+// بيانات النظام
 let employees = [];
 let inventory = [];
 let assignments = [];
-let users = [];
 let currentUser = null;
-let settings = {
-    companyName: 'شركة إدارة معدات الحماية الشخصية',
-    lowStockThreshold: 10,
-    notificationEmail: 'admin@company.com'
-};
 
-// بيانات المستخدمين الافتراضية
+// المستخدمون الافتراضيون
 const defaultUsers = [
-    { id: 1, username: 'admin', password: 'admin123', name: 'المدير العام', role: 'admin' },
-    { id: 2, username: 'user', password: 'user123', name: 'مستخدم عادي', role: 'user' }
+    {
+        id: 'admin',
+        username: 'admin',
+        password: 'admin123',
+        role: 'admin',
+        name: 'المدير العام'
+    },
+    {
+        id: 'user',
+        username: 'user',
+        password: 'user123',
+        role: 'user',
+        name: 'مستخدم عادي'
+    }
 ];
 
-// دالة حفظ البيانات إلى Firebase
-async function saveDataToFirebase() {
+// وظائف Firebase مع معالجة الأخطاء المحسنة
+async function saveToFirestore(collectionName, data) {
     try {
-        // حفظ الموظفين
-        const employeesRef = db.collection('employees');
-        for (const employee of employees) {
-            await employeesRef.doc(employee.id.toString()).set(employee);
-        }
-
-        // حفظ المخزون
-        const inventoryRef = db.collection('inventory');
-        for (const item of inventory) {
-            await inventoryRef.doc(item.id.toString()).set(item);
-        }
-
-        // حفظ التسليمات
-        const assignmentsRef = db.collection('assignments');
-        for (const assignment of assignments) {
-            await assignmentsRef.doc(assignment.id.toString()).set(assignment);
-        }
-
-        // حفظ المستخدمين
-        const usersRef = db.collection('users');
-        for (const user of users) {
-            await usersRef.doc(user.id.toString()).set(user);
-        }
-
-        // حفظ الإعدادات
-        await db.collection('settings').doc('main').set(settings);
-
-        console.log('تم حفظ البيانات بنجاح في Firebase');
+        const docRef = await addDoc(collection(db, collectionName), data);
+        console.log(`تم حفظ البيانات في ${collectionName} بنجاح`);
+        return docRef.id;
     } catch (error) {
-        console.error('خطأ في حفظ البيانات:', error);
+        console.error(`خطأ في حفظ البيانات في ${collectionName}:`, error);
+        // حفظ احتياطي محلي
+        saveToLocalStorage(collectionName, data);
+        throw error;
     }
 }
 
-// دالة تحميل البيانات من Firebase
-async function loadDataFromFirebase() {
+async function loadFromFirestore(collectionName) {
     try {
-        // تحميل الموظفين
-        const employeesSnapshot = await db.collection('employees').get();
-        employees = [];
-        employeesSnapshot.forEach(doc => {
-            employees.push(doc.data());
+        const querySnapshot = await getDocs(collection(db, collectionName));
+        const data = [];
+        querySnapshot.forEach((doc) => {
+            data.push({ id: doc.id, ...doc.data() });
         });
+        console.log(`تم تحميل البيانات من ${collectionName} بنجاح`);
+        return data;
+    } catch (error) {
+        console.error(`خطأ في تحميل البيانات من ${collectionName}:`, error);
+        // تحميل احتياطي محلي
+        return loadFromLocalStorage(collectionName);
+    }
+}
 
-        // تحميل المخزون
-        const inventorySnapshot = await db.collection('inventory').get();
-        inventory = [];
-        inventorySnapshot.forEach(doc => {
-            inventory.push(doc.data());
-        });
+async function updateInFirestore(collectionName, docId, data) {
+    try {
+        await updateDoc(doc(db, collectionName, docId), data);
+        console.log(`تم تحديث البيانات في ${collectionName} بنجاح`);
+    } catch (error) {
+        console.error(`خطأ في تحديث البيانات في ${collectionName}:`, error);
+        throw error;
+    }
+}
 
-        // تحميل التسليمات
-        const assignmentsSnapshot = await db.collection('assignments').get();
-        assignments = [];
-        assignmentsSnapshot.forEach(doc => {
-            assignments.push(doc.data());
-        });
+async function deleteFromFirestore(collectionName, docId) {
+    try {
+        await deleteDoc(doc(db, collectionName, docId));
+        console.log(`تم حذف البيانات من ${collectionName} بنجاح`);
+    } catch (error) {
+        console.error(`خطأ في حذف البيانات من ${collectionName}:`, error);
+        throw error;
+    }
+}
 
-        // تحميل المستخدمين
-        const usersSnapshot = await db.collection('users').get();
-        users = [];
-        usersSnapshot.forEach(doc => {
-            users.push(doc.data());
-        });
+// وظائف الحفظ المحلي الاحتياطي
+function saveToLocalStorage(key, data) {
+    try {
+        const existingData = JSON.parse(localStorage.getItem(key) || '[]');
+        existingData.push({ ...data, id: Date.now().toString(), timestamp: new Date().toISOString() });
+        localStorage.setItem(key, JSON.stringify(existingData));
+        console.log(`تم الحفظ الاحتياطي محلياً في ${key}`);
+    } catch (error) {
+        console.error(`خطأ في الحفظ المحلي:`, error);
+    }
+}
 
-        // إذا لم توجد مستخدمين، استخدم المستخدمين الافتراضيين
-        if (users.length === 0) {
-            users = [...defaultUsers];
-            await saveDataToFirebase();
-        }
+function loadFromLocalStorage(key) {
+    try {
+        return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch (error) {
+        console.error(`خطأ في التحميل المحلي:`, error);
+        return [];
+    }
+}
 
-        // تحميل الإعدادات
-        const settingsDoc = await db.collection('settings').doc('main').get();
-        if (settingsDoc.exists) {
-            settings = settingsDoc.data();
-        }
-
-        console.log('تم تحميل البيانات بنجاح من Firebase');
+// تحميل البيانات عند بدء التطبيق
+async function loadAllData() {
+    try {
+        console.log('بدء تحميل البيانات من Firebase...');
         
-        // تحديث واجهة المستخدم
-        updateUI();
+        // تحميل البيانات من Firebase
+        employees = await loadFromFirestore('employees');
+        inventory = await loadFromFirestore('inventory');
+        assignments = await loadFromFirestore('assignments');
+        
+        // تحديث الواجهة
+        updateEmployeeTable();
+        updateInventoryTable();
+        updateAssignmentTable();
+        updateDashboard();
+        
+        console.log('تم تحميل البيانات بنجاح من Firebase');
+        showNotification('تم تحميل البيانات بنجاح', 'success');
     } catch (error) {
         console.error('خطأ في تحميل البيانات:', error);
-        // في حالة الخطأ، استخدم البيانات الافتراضية
-        users = [...defaultUsers];
-        loadDataFromLocalStorage();
-    }
-}
-
-// دالة تحديث واجهة المستخدم
-function updateUI() {
-    if (currentUser) {
-        loadDashboardData();
-        loadEmployeesData();
-        loadInventoryData();
-        loadAssignmentsTable();
-        loadUsersManagement();
+        showNotification('خطأ في تحميل البيانات، سيتم استخدام البيانات المحلية', 'warning');
         
-        // إظهار/إخفاء قائمة إدارة المستخدمين حسب الصلاحية
-        const adminMenuItem = document.getElementById('adminMenuItem');
-        if (currentUser.role === 'admin') {
-            adminMenuItem.style.display = 'block';
-        } else {
-            adminMenuItem.style.display = 'none';
-        }
+        // تحميل البيانات المحلية كبديل
+        employees = loadFromLocalStorage('employees');
+        inventory = loadFromLocalStorage('inventory');
+        assignments = loadFromLocalStorage('assignments');
         
-        // تحديث حقول الإعدادات
-        document.getElementById('companyName').value = settings.companyName;
-        document.getElementById('lowStockThreshold').value = settings.lowStockThreshold;
-        document.getElementById('notificationEmail').value = settings.notificationEmail;
+        updateEmployeeTable();
+        updateInventoryTable();
+        updateAssignmentTable();
+        updateDashboard();
     }
 }
 
-// دالة حفظ البيانات (تحفظ في Firebase و localStorage)
-async function saveData() {
-    await saveDataToFirebase();
-    saveDataToLocalStorage(); // احتياطي
-}
-
-// دالة تحميل إدارة المستخدمين
-function loadUsersManagement() {
-    if (currentUser.role !== 'admin') return;
+// وظائف تسجيل الدخول
+function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
     
-    const container = document.getElementById('usersManagementContainer');
-    container.innerHTML = '';
+    const user = defaultUsers.find(u => u.username === username && u.password === password);
     
-    users.forEach(user => {
-        const userCard = document.createElement('div');
-        userCard.className = 'user-management-card';
-        userCard.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="mb-1">${user.name}</h6>
-                    <p class="mb-1 text-muted">@${user.username}</p>
-                    <span class="user-role-badge role-${user.role}">${getRoleDisplayName(user.role)}</span>
-                </div>
-                <div>
-                    <button class="btn btn-sm btn-outline-primary me-2" onclick="editUser(${user.id})">
-                        <i class="fas fa-edit"></i> تعديل
-                    </button>
-                    ${user.id !== currentUser.id ? `
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${user.id})">
-                            <i class="fas fa-trash"></i> حذف
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-        container.appendChild(userCard);
-    });
-    
-    // تحديث الإحصائيات
-    document.getElementById('totalUsersCount').textContent = users.length;
-    document.getElementById('adminUsersCount').textContent = users.filter(u => u.role === 'admin').length;
-    document.getElementById('regularUsersCount').textContent = users.filter(u => u.role === 'user').length;
-    document.getElementById('viewerUsersCount').textContent = users.filter(u => u.role === 'viewer').length;
-}
-
-// دالة الحصول على اسم الصلاحية للعرض
-function getRoleDisplayName(role) {
-    switch(role) {
-        case 'admin': return 'مدير';
-        case 'user': return 'مستخدم عادي';
-        case 'viewer': return 'مشاهد فقط';
-        default: return 'غير محدد';
-    }
-}
-
-// دالة إضافة مستخدم جديد
-async function addUser() {
-    const editId = document.getElementById('editUserId').value;
-    const userData = {
-        name: document.getElementById('newUserName').value,
-        username: document.getElementById('newUsername').value,
-        password: document.getElementById('newUserPassword').value,
-        role: document.getElementById('newUserRole').value
-    };
-
-    // التحقق من عدم تكرار اسم المستخدم
-    const existingUser = users.find(u => u.username === userData.username && u.id !== parseInt(editId));
-    if (existingUser) {
-        alert('اسم المستخدم موجود بالفعل');
-        return;
-    }
-
-    if (editId) {
-        // تعديل مستخدم موجود
-        const userIndex = users.findIndex(u => u.id === parseInt(editId));
-        if (userIndex !== -1) {
-            users[userIndex] = { ...users[userIndex], ...userData };
-        }
+    if (user) {
+        currentUser = user;
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        
+        // إظهار/إخفاء عناصر حسب الصلاحيات
+        updateUIBasedOnRole();
+        
+        // تحميل البيانات
+        loadAllData();
+        
+        showNotification(`مرحباً ${user.name}`, 'success');
     } else {
-        // إضافة مستخدم جديد
-        const newUser = {
-            id: Date.now(),
-            ...userData
-        };
-        users.push(newUser);
-    }
-
-    await saveData();
-    loadUsersManagement();
-    document.getElementById('addUserModal').style.display = 'none';
-    
-    alert(editId ? 'تم تحديث بيانات المستخدم بنجاح' : 'تم إضافة المستخدم بنجاح');
-}
-
-// دالة تعديل مستخدم
-function editUser(userId) {
-    const user = users.find(u => u.id === userId);
-    if (!user) return;
-    
-    document.getElementById('editUserId').value = user.id;
-    document.getElementById('newUserName').value = user.name;
-    document.getElementById('newUsername').value = user.username;
-    document.getElementById('newUserPassword').value = user.password;
-    document.getElementById('newUserRole').value = user.role;
-    
-    document.getElementById('addUserModal').style.display = 'block';
-}
-
-// دالة حذف مستخدم
-async function deleteUser(userId) {
-    if (userId === currentUser.id) {
-        alert('لا يمكنك حذف حسابك الخاص');
-        return;
-    }
-    
-    if (!confirm('هل أنت متأكد من حذف هذا المستخدم؟')) {
-        return;
-    }
-    
-    users = users.filter(u => u.id !== userId);
-    
-    await saveData();
-    loadUsersManagement();
-    
-    alert('تم حذف المستخدم بنجاح');
-}
-
-// دالة التحقق من الصلاحيات
-function hasPermission(action) {
-    if (!currentUser) return false;
-    
-    switch(currentUser.role) {
-        case 'admin':
-            return true; // المدير له جميع الصلاحيات
-        case 'user':
-            return action !== 'delete' && action !== 'admin'; // المستخدم العادي لا يمكنه الحذف أو الوصول لإدارة المستخدمين
-        case 'viewer':
-            return action === 'view'; // المشاهد يمكنه المشاهدة فقط
-        default:
-            return false;
-    }
-}
-
-// دالة حذف جميع البيانات (محدثة)
-async function clearAllData() {
-    try {
-        // حذف البيانات من Firebase
-        const collections = ['employees', 'inventory', 'assignments'];
-        
-        for (const collectionName of collections) {
-            const snapshot = await db.collection(collectionName).get();
-            const batch = db.batch();
-            
-            snapshot.docs.forEach(doc => {
-                batch.delete(doc.ref);
-            });
-            
-            await batch.commit();
-        }
-        
-        // إعادة تعيين البيانات المحلية
-        employees = [];
-        inventory = [];
-        assignments = [];
-        
-        // حفظ البيانات المحدثة
-        await saveData();
-        
-        // تحديث واجهة المستخدم
-        updateUI();
-        
-        alert('تم مسح جميع البيانات بنجاح');
-    } catch (error) {
-        console.error('خطأ في مسح البيانات:', error);
-        alert('حدث خطأ أثناء مسح البيانات');
-    }
-}
-
-// دالة تأكيد مسح البيانات
-function confirmClearAllData() {
-    if (!hasPermission('delete')) {
-        alert('ليس لديك صلاحية لحذف البيانات');
-        return;
-    }
-    
-    const confirmation = prompt('لتأكيد مسح جميع البيانات، اكتب "مسح" في المربع أدناه:');
-    if (confirmation === 'مسح') {
-        clearAllData();
-    } else {
-        alert('تم إلغاء العملية');
-    }
-}
-
-// دالة استيراد الموظفين من Excel (محدثة)
-function handleFileImport(event) {
-    if (!hasPermission('add')) {
-        alert('ليس لديك صلاحية لإضافة البيانات');
-        return;
-    }
-    
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            
-            // تحويل البيانات إلى JSON مع تحديد الأعمدة المطلوبة
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-                header: ['name', 'company', 'title', 'tel', 'shift', 'status'],
-                range: 1 // تجاهل الصف الأول (العناوين)
-            });
-            
-            // تصفية البيانات الفارغة
-            const validData = jsonData.filter(row => 
-                row.name && row.company && row.title && row.shift && row.status
-            );
-            
-            if (validData.length === 0) {
-                alert('لم يتم العثور على بيانات صالحة في الملف. تأكد من أن الملف يحتوي على الأعمدة: الاسم، الشركة، المسمى الوظيفي، رقم الهاتف، الوردية، الحالة');
-                return;
-            }
-            
-            // عرض معاينة البيانات
-            displayImportPreview(validData);
-            
-        } catch (error) {
-            console.error('خطأ في قراءة الملف:', error);
-            alert('حدث خطأ في قراءة الملف. تأكد من أن الملف بصيغة Excel صحيحة.');
-        }
-    };
-    
-    reader.readAsArrayBuffer(file);
-}
-
-// دالة عرض معاينة البيانات المستوردة
-function displayImportPreview(data) {
-    const previewContainer = document.getElementById('importPreview');
-    const previewTable = document.getElementById('importPreviewTable');
-    
-    let tableHTML = `
-        <table class="table table-sm">
-            <thead>
-                <tr>
-                    <th>الاسم</th>
-                    <th>الشركة</th>
-                    <th>المسمى الوظيفي</th>
-                    <th>رقم الهاتف</th>
-                    <th>الوردية</th>
-                    <th>الحالة</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    data.slice(0, 5).forEach(row => {
-        tableHTML += `
-            <tr>
-                <td>${row.name || ''}</td>
-                <td>${row.company || ''}</td>
-                <td>${row.title || ''}</td>
-                <td>${row.tel || ''}</td>
-                <td>${row.shift || ''}</td>
-                <td>${row.status || ''}</td>
-            </tr>
-        `;
-    });
-    
-    if (data.length > 5) {
-        tableHTML += `<tr><td colspan="6" class="text-center">... و ${data.length - 5} صف آخر</td></tr>`;
-    }
-    
-    tableHTML += '</tbody></table>';
-    
-    previewTable.innerHTML = tableHTML;
-    previewContainer.style.display = 'block';
-    document.getElementById('confirmImportBtn').style.display = 'inline-block';
-    
-    // حفظ البيانات للاستيراد
-    window.importData = data;
-}
-
-// دالة تأكيد الاستيراد
-async function confirmImport() {
-    if (!window.importData) return;
-    
-    try {
-        const importedCount = window.importData.length;
-        
-        window.importData.forEach(row => {
-            const newEmployee = {
-                id: Date.now() + Math.random(), // ضمان عدم التكرار
-                name: row.name,
-                company: row.company,
-                title: row.title,
-                tel: row.tel || '',
-                shift: row.shift,
-                status: row.status
-            };
-            employees.push(newEmployee);
-        });
-        
-        await saveData();
-        loadEmployeesData();
-        
-        document.getElementById('importModal').style.display = 'none';
-        document.getElementById('importFile').value = '';
-        document.getElementById('importPreview').style.display = 'none';
-        document.getElementById('confirmImportBtn').style.display = 'none';
-        
-        alert(`تم استيراد ${importedCount} موظف بنجاح`);
-        
-    } catch (error) {
-        console.error('خطأ في الاستيراد:', error);
-        alert('حدث خطأ أثناء استيراد البيانات');
-    }
-}
-
-// باقي الدوال الأساسية
-document.addEventListener('DOMContentLoaded', function() {
-    // تحميل البيانات عند بدء التطبيق
-    loadDataFromFirebase();
-    
-    // معالج تسجيل الدخول
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        
-        const user = users.find(u => u.username === username && u.password === password);
-        
-        if (user) {
-            currentUser = user;
-            showMainApp();
-            document.getElementById('loginError').classList.add('d-none');
-        } else {
-            document.getElementById('loginError').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
-            document.getElementById('loginError').classList.remove('d-none');
-        }
-    });
-
-    // معالجات تسجيل الخروج
-    document.getElementById('logoutBtn').addEventListener('click', logout);
-    document.getElementById('logoutMenuItem').addEventListener('click', logout);
-
-    // معالج التنقل بين الصفحات
-    document.querySelectorAll('.sidebar-menu li').forEach(item => {
-        if (!item.id.includes('logout') && !item.id.includes('admin')) {
-            item.addEventListener('click', function() {
-                const page = this.getAttribute('data-page');
-                if (page) {
-                    showPage(page);
-                    
-                    // تحديث الشريط الجانبي
-                    document.querySelectorAll('.sidebar-menu li').forEach(li => li.classList.remove('active'));
-                    this.classList.add('active');
-                }
-            });
-        }
-    });
-
-    // معالج صفحة إدارة المستخدمين
-    document.querySelector('[data-page="admin"]').addEventListener('click', function() {
-        if (currentUser.role === 'admin') {
-            showPage('admin');
-            document.querySelectorAll('.sidebar-menu li').forEach(li => li.classList.remove('active'));
-            this.classList.add('active');
-        } else {
-            alert('ليس لديك صلاحية للوصول إلى هذه الصفحة');
-        }
-    });
-
-    // معالج إضافة موظف جديد
-    document.getElementById('addEmployeeBtn').addEventListener('click', function() {
-        if (!hasPermission('add')) {
-            alert('ليس لديك صلاحية لإضافة الموظفين');
-            return;
-        }
-        document.getElementById('addEmployeeModal').style.display = 'block';
-        document.getElementById('addEmployeeForm').reset();
-        document.getElementById('editEmployeeId').value = '';
-    });
-
-    // معالج إغلاق نافذة إضافة موظف
-    document.getElementById('closeAddEmployeeModal').addEventListener('click', function() {
-        document.getElementById('addEmployeeModal').style.display = 'none';
-    });
-
-    document.getElementById('cancelAddEmployee').addEventListener('click', function() {
-        document.getElementById('addEmployeeModal').style.display = 'none';
-    });
-
-    // معالج نموذج إضافة موظف
-    document.getElementById('addEmployeeForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        if (!hasPermission('add')) {
-            alert('ليس لديك صلاحية لإضافة أو تعديل الموظفين');
-            return;
-        }
-        
-        const editId = document.getElementById('editEmployeeId').value;
-        const employeeData = {
-            name: document.getElementById('newEmployeeName').value,
-            company: document.getElementById('newEmployeeCompany').value,
-            title: document.getElementById('newEmployeeTitle').value,
-            tel: document.getElementById('newEmployeeTel').value,
-            shift: document.getElementById('newEmployeeShift').value,
-            status: document.getElementById('newEmployeeStatus').value
-        };
-
-        if (editId) {
-            // تعديل موظف موجود
-            const employeeIndex = employees.findIndex(e => e.id === parseInt(editId));
-            if (employeeIndex !== -1) {
-                employees[employeeIndex] = { ...employees[employeeIndex], ...employeeData };
-            }
-        } else {
-            // إضافة موظف جديد
-            const newEmployee = {
-                id: Date.now(),
-                ...employeeData
-            };
-            employees.push(newEmployee);
-        }
-
-        await saveData();
-        loadEmployeesData();
-        document.getElementById('addEmployeeModal').style.display = 'none';
-        
-        alert(editId ? 'تم تحديث بيانات الموظف بنجاح' : 'تم إضافة الموظف بنجاح');
-    });
-
-    // معالج إضافة معدة جديدة
-    document.getElementById('addItemBtn').addEventListener('click', function() {
-        if (!hasPermission('add')) {
-            alert('ليس لديك صلاحية لإضافة المعدات');
-            return;
-        }
-        document.getElementById('addItemModal').style.display = 'block';
-        document.getElementById('addItemForm').reset();
-        document.getElementById('editItemId').value = '';
-    });
-
-    // معالج إغلاق نافذة إضافة معدة
-    document.getElementById('closeAddItemModal').addEventListener('click', function() {
-        document.getElementById('addItemModal').style.display = 'none';
-    });
-
-    document.getElementById('cancelAddItem').addEventListener('click', function() {
-        document.getElementById('addItemModal').style.display = 'none';
-    });
-
-    // معالج نموذج إضافة معدة
-    document.getElementById('addItemForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        if (!hasPermission('add')) {
-            alert('ليس لديك صلاحية لإضافة أو تعديل المعدات');
-            return;
-        }
-        
-        const editId = document.getElementById('editItemId').value;
-        const itemData = {
-            itemName: document.getElementById('newItemName').value,
-            type: document.getElementById('newItemType').value,
-            size: document.getElementById('newItemSize').value,
-            stockIn: parseInt(document.getElementById('newItemStockIn').value),
-            totalIssues: parseInt(document.getElementById('newItemTotalIssues').value) || 0
-        };
-
-        itemData.currentStock = itemData.stockIn - itemData.totalIssues;
-        
-        // تحديد حالة المعدة
-        if (itemData.currentStock === 0) {
-            itemData.status = "Out of Stock";
-        } else if (itemData.currentStock <= settings.lowStockThreshold) {
-            itemData.status = "Low Stock";
-        } else {
-            itemData.status = "Good";
-        }
-
-        if (editId) {
-            // تعديل معدة موجودة
-            const itemIndex = inventory.findIndex(i => i.id === parseInt(editId));
-            if (itemIndex !== -1) {
-                inventory[itemIndex] = { ...inventory[itemIndex], ...itemData };
-            }
-        } else {
-            // إضافة معدة جديدة
-            const newItem = {
-                id: Date.now(),
-                ...itemData
-            };
-            inventory.push(newItem);
-        }
-
-        await saveData();
-        loadInventoryData();
-        loadDashboardData();
-        document.getElementById('addItemModal').style.display = 'none';
-        
-        alert(editId ? 'تم تحديث بيانات المعدة بنجاح' : 'تم إضافة المعدة بنجاح');
-    });
-
-    // معالج نموذج تسليم المعدات
-    document.getElementById('assignmentForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        if (!hasPermission('add')) {
-            alert('ليس لديك صلاحية لتسليم المعدات');
-            return;
-        }
-        
-        const employeeId = parseInt(document.getElementById('employeeSelect').value);
-        const itemId = parseInt(document.getElementById('itemSelect').value);
-        const quantity = parseInt(document.getElementById('assignmentQuantity').value);
-        const reason = document.getElementById('assignmentReason').value;
-        
-        const employee = employees.find(e => e.id === employeeId);
-        const item = inventory.find(i => i.id === itemId);
-        
-        if (!employee || !item) {
-            alert('يرجى اختيار موظف ومعدة صحيحة');
-            return;
-        }
-        
-        if (quantity > item.currentStock) {
-            alert('الكمية المطلوبة أكبر من المتوفر في المخزون');
-            return;
-        }
-        
-        // إنشاء سجل تسليم جديد
-        const assignment = {
-            id: Date.now(),
-            employeeId: employeeId,
-            employeeName: employee.name,
-            itemId: itemId,
-            itemName: item.itemName,
-            size: item.size,
-            quantity: quantity,
-            reason: reason,
-            date: new Date().toISOString().split('T')[0]
-        };
-        
-        assignments.push(assignment);
-        
-        // تحديث المخزون
-        item.totalIssues += quantity;
-        item.currentStock -= quantity;
-        
-        // تحديث حالة المعدة
-        if (item.currentStock === 0) {
-            item.status = "Out of Stock";
-        } else if (item.currentStock <= settings.lowStockThreshold) {
-            item.status = "Low Stock";
-        } else {
-            item.status = "Good";
-        }
-        
-        await saveData();
-        loadInventoryData();
-        loadAssignmentsTable();
-        loadDashboardData();
-        
-        this.reset();
-        alert('تم تسليم المعدة بنجاح');
-    });
-
-    // معالج البحث عن الموظفين
-    document.getElementById('employeeSearchInput').addEventListener('input', function() {
-        searchEmployees();
-    });
-
-    // معالج تصدير التقارير
-    document.getElementById('exportInventoryPdfBtn').addEventListener('click', generateInventoryReport);
-    document.getElementById('exportAssignmentsPdfBtn').addEventListener('click', generateAssignmentsReport);
-
-    // معالج حفظ الإعدادات
-    document.getElementById('settingsForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (hasPermission('admin')) {
-            saveSettings();
-        } else {
-            alert('ليس لديك صلاحية لتعديل الإعدادات');
-        }
-    });
-
-    // معالج مسح جميع البيانات
-    document.getElementById('clearAllDataBtn').addEventListener('click', confirmClearAllData);
-
-    // معالج استيراد الموظفين
-    document.getElementById('importEmployeesBtn').addEventListener('click', function() {
-        if (!hasPermission('add')) {
-            alert('ليس لديك صلاحية لاستيراد البيانات');
-            return;
-        }
-        document.getElementById('importModal').style.display = 'block';
-    });
-
-    document.querySelector('.close-import').addEventListener('click', function() {
-        document.getElementById('importModal').style.display = 'none';
-    });
-
-    document.getElementById('cancelImportBtn').addEventListener('click', function() {
-        document.getElementById('importModal').style.display = 'none';
-    });
-
-    document.getElementById('importFile').addEventListener('change', handleFileImport);
-    document.getElementById('confirmImportBtn').addEventListener('click', confirmImport);
-
-    // معالجات إدارة المستخدمين
-    document.getElementById('addUserBtn').addEventListener('click', function() {
-        document.getElementById('addUserModal').style.display = 'block';
-        document.getElementById('addUserForm').reset();
-        document.getElementById('editUserId').value = '';
-    });
-
-    document.getElementById('closeAddUserModal').addEventListener('click', function() {
-        document.getElementById('addUserModal').style.display = 'none';
-    });
-
-    document.getElementById('cancelAddUser').addEventListener('click', function() {
-        document.getElementById('addUserModal').style.display = 'none';
-    });
-
-    document.getElementById('addUserForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await addUser();
-    });
-
-    // إظهار صفحة تسجيل الدخول في البداية
-    showLoginPage();
-});
-
-// دالة تعديل موظف
-async function editEmployee(employeeId) {
-    if (!hasPermission('edit')) {
-        alert('ليس لديك صلاحية لتعديل الموظفين');
-        return;
-    }
-    
-    const employee = employees.find(e => e.id === employeeId);
-    if (!employee) return;
-    
-    document.getElementById('editEmployeeId').value = employee.id;
-    document.getElementById('newEmployeeName').value = employee.name;
-    document.getElementById('newEmployeeCompany').value = employee.company;
-    document.getElementById('newEmployeeTitle').value = employee.title;
-    document.getElementById('newEmployeeTel').value = employee.tel || '';
-    document.getElementById('newEmployeeShift').value = employee.shift;
-    document.getElementById('newEmployeeStatus').value = employee.status;
-    
-    document.getElementById('addEmployeeModal').style.display = 'block';
-}
-
-// دالة حذف موظف
-async function deleteEmployee(employeeId) {
-    if (!hasPermission('delete')) {
-        alert('ليس لديك صلاحية لحذف الموظفين');
-        return;
-    }
-    
-    if (!confirm('هل أنت متأكد من حذف هذا الموظف؟ سيتم حذف جميع سجلات التسليم المرتبطة به.')) {
-        return;
-    }
-    
-    employees = employees.filter(e => e.id !== employeeId);
-    assignments = assignments.filter(a => a.employeeId !== employeeId);
-    
-    await saveData();
-    loadEmployeesData();
-    loadAssignmentsTable();
-    loadDashboardData();
-    
-    alert('تم حذف الموظف بنجاح');
-}
-
-// دالة تعديل معدة
-async function editItem(itemId) {
-    if (!hasPermission('edit')) {
-        alert('ليس لديك صلاحية لتعديل المعدات');
-        return;
-    }
-    
-    const item = inventory.find(i => i.id === itemId);
-    if (!item) return;
-    
-    document.getElementById('editItemId').value = item.id;
-    document.getElementById('newItemName').value = item.itemName;
-    document.getElementById('newItemType').value = item.type;
-    document.getElementById('newItemSize').value = item.size;
-    document.getElementById('newItemStockIn').value = item.stockIn;
-    document.getElementById('newItemTotalIssues').value = item.totalIssues;
-    
-    document.getElementById('addItemModal').style.display = 'block';
-}
-
-// دالة حذف معدة
-async function deleteItem(itemId) {
-    if (!hasPermission('delete')) {
-        alert('ليس لديك صلاحية لحذف المعدات');
-        return;
-    }
-    
-    if (!confirm('هل أنت متأكد من حذف هذه المعدة؟ لا يمكن التراجع عن هذا الإجراء.')) {
-        return;
-    }
-    
-    inventory = inventory.filter(i => i.id !== itemId);
-    
-    await saveData();
-    loadInventoryData();
-    loadDashboardData();
-    
-    alert('تم حذف المعدة بنجاح');
-}
-
-// باقي الدوال تبقى كما هي...
-function showLoginPage() {
-    document.getElementById('loginPage').classList.remove('d-none');
-    document.getElementById('mainApp').classList.add('d-none');
-    document.getElementById('username').value = '';
-    document.getElementById('password').value = '';
-    document.getElementById('loginError').classList.add('d-none');
-}
-
-function showMainApp() {
-    document.getElementById('loginPage').classList.add('d-none');
-    document.getElementById('mainApp').classList.remove('d-none');
-    document.getElementById('currentUserName').textContent = currentUser.name;
-    
-    updateUI();
-    showPage('dashboard');
-}
-
-function showPage(page) {
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    
-    document.getElementById(page).classList.add('active');
-    
-    if (page === 'assignments') {
-        loadEmployeeSelect();
-        loadItemSelect();
+        showNotification('اسم المستخدم أو كلمة المرور غير صحيحة', 'error');
     }
 }
 
 function logout() {
     currentUser = null;
-    showLoginPage();
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
 }
 
-function loadDashboardData() {
-    // إحصائيات الموظفين
-    document.getElementById('totalEmployees').textContent = employees.length;
+function updateUIBasedOnRole() {
+    const isAdmin = currentUser && currentUser.role === 'admin';
     
-    // إحصائيات المخزون
-    const availableItems = inventory.filter(item => item.status === 'Good').length;
-    const lowStockItems = inventory.filter(item => item.status === 'Low Stock').length;
-    const outOfStockItems = inventory.filter(item => item.status === 'Out of Stock').length;
-    
-    document.getElementById('availableItems').textContent = availableItems;
-    document.getElementById('lowStockItems').textContent = lowStockItems;
-    document.getElementById('outOfStockItems').textContent = outOfStockItems;
-    
-    // آخر عمليات التسليم
-    loadRecentAssignments();
-    
-    // الرسوم البيانية
-    loadCharts();
-}
-
-function loadRecentAssignments() {
-    const recentAssignments = assignments.slice(-5).reverse();
-    const tableBody = document.getElementById('recentAssignmentsTable');
-    
-    if (recentAssignments.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="4" class="text-center">لا توجد عمليات تسليم مسجلة</td></tr>';
-        return;
-    }
-    
-    tableBody.innerHTML = recentAssignments.map(assignment => `
-        <tr>
-            <td>${assignment.date}</td>
-            <td>${assignment.employeeName}</td>
-            <td>${assignment.itemName} (${assignment.size})</td>
-            <td>${assignment.quantity}</td>
-        </tr>
-    `).join('');
-}
-
-function loadCharts() {
-    // رسم بياني لحالة الموظفين
-    const employeeStatusData = {
-        'نشط': employees.filter(e => e.status === 'نشط').length,
-        'غير نشط': employees.filter(e => e.status === 'غير نشط').length,
-        'ترك العمل': employees.filter(e => e.status === 'ترك العمل').length
-    };
-    
-    const employeeCtx = document.getElementById('employeeStatusChart').getContext('2d');
-    new Chart(employeeCtx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(employeeStatusData),
-            datasets: [{
-                data: Object.values(employeeStatusData),
-                backgroundColor: ['#28a745', '#ffc107', '#dc3545']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
-        }
+    // إظهار/إخفاء عناصر الإدارة
+    const adminElements = document.querySelectorAll('.admin-only');
+    adminElements.forEach(element => {
+        element.style.display = isAdmin ? 'block' : 'none';
     });
     
-    // رسم بياني لحالة المخزون
-    const inventoryStatusData = {
-        'متوفر': inventory.filter(i => i.status === 'Good').length,
-        'مخزون منخفض': inventory.filter(i => i.status === 'Low Stock').length,
-        'منتهي': inventory.filter(i => i.status === 'Out of Stock').length
-    };
-    
-    const inventoryCtx = document.getElementById('inventoryStatusChart').getContext('2d');
-    new Chart(inventoryCtx, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(inventoryStatusData),
-            datasets: [{
-                data: Object.values(inventoryStatusData),
-                backgroundColor: ['#28a745', '#ffc107', '#dc3545']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            }
-        }
+    // إظهار/إخفاء أزرار الحذف
+    const deleteButtons = document.querySelectorAll('.delete-btn');
+    deleteButtons.forEach(button => {
+        button.style.display = isAdmin ? 'inline-block' : 'none';
     });
 }
 
-function loadEmployeesData() {
-    const tableBody = document.getElementById('employeesTable');
-    
-    if (employees.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5" class="text-center">لا توجد بيانات</td></tr>';
+// وظائف إدارة الموظفين
+async function addEmployee() {
+    if (!hasPermission('write')) {
+        showNotification('ليس لديك صلاحية لإضافة الموظفين', 'error');
         return;
     }
     
-    tableBody.innerHTML = employees.map(employee => `
-        <tr>
-            <td>
-                <a href="#" class="employee-name-link" onclick="showEmployeeDetails(${employee.id})">
-                    ${employee.name}
-                </a>
-            </td>
+    const name = document.getElementById('employeeName').value;
+    const company = document.getElementById('employeeCompany').value;
+    const position = document.getElementById('employeePosition').value;
+    const phone = document.getElementById('employeePhone').value;
+    const shift = document.getElementById('employeeShift').value;
+    const status = document.getElementById('employeeStatus').value;
+    
+    if (!name || !company || !position) {
+        showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+        return;
+    }
+    
+    const employee = {
+        name,
+        company,
+        position,
+        phone: phone || '',
+        shift,
+        status,
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser.username
+    };
+    
+    try {
+        const docId = await saveToFirestore('employees', employee);
+        employee.id = docId;
+        employees.push(employee);
+        
+        updateEmployeeTable();
+        updateDashboard();
+        closeModal('employeeModal');
+        clearEmployeeForm();
+        
+        showNotification('تم إضافة الموظف بنجاح', 'success');
+    } catch (error) {
+        showNotification('خطأ في إضافة الموظف', 'error');
+    }
+}
+
+async function editEmployee(id) {
+    if (!hasPermission('write')) {
+        showNotification('ليس لديك صلاحية لتعديل الموظفين', 'error');
+        return;
+    }
+    
+    const employee = employees.find(emp => emp.id === id);
+    if (!employee) return;
+    
+    // ملء النموذج بالبيانات الحالية
+    document.getElementById('employeeName').value = employee.name;
+    document.getElementById('employeeCompany').value = employee.company;
+    document.getElementById('employeePosition').value = employee.position;
+    document.getElementById('employeePhone').value = employee.phone || '';
+    document.getElementById('employeeShift').value = employee.shift;
+    document.getElementById('employeeStatus').value = employee.status;
+    
+    // تغيير وظيفة الزر للتحديث
+    const saveBtn = document.querySelector('#employeeModal .btn-primary');
+    saveBtn.textContent = 'تحديث';
+    saveBtn.onclick = () => updateEmployee(id);
+    
+    openModal('employeeModal');
+}
+
+async function updateEmployee(id) {
+    const name = document.getElementById('employeeName').value;
+    const company = document.getElementById('employeeCompany').value;
+    const position = document.getElementById('employeePosition').value;
+    const phone = document.getElementById('employeePhone').value;
+    const shift = document.getElementById('employeeShift').value;
+    const status = document.getElementById('employeeStatus').value;
+    
+    if (!name || !company || !position) {
+        showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+        return;
+    }
+    
+    const updatedData = {
+        name,
+        company,
+        position,
+        phone: phone || '',
+        shift,
+        status,
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser.username
+    };
+    
+    try {
+        await updateInFirestore('employees', id, updatedData);
+        
+        const employeeIndex = employees.findIndex(emp => emp.id === id);
+        if (employeeIndex !== -1) {
+            employees[employeeIndex] = { ...employees[employeeIndex], ...updatedData };
+        }
+        
+        updateEmployeeTable();
+        updateDashboard();
+        closeModal('employeeModal');
+        clearEmployeeForm();
+        
+        showNotification('تم تحديث الموظف بنجاح', 'success');
+    } catch (error) {
+        showNotification('خطأ في تحديث الموظف', 'error');
+    }
+}
+
+async function deleteEmployee(id) {
+    if (!hasPermission('delete')) {
+        showNotification('ليس لديك صلاحية لحذف الموظفين', 'error');
+        return;
+    }
+    
+    if (!confirm('هل أنت متأكد من حذف هذا الموظف؟')) return;
+    
+    try {
+        await deleteFromFirestore('employees', id);
+        employees = employees.filter(emp => emp.id !== id);
+        
+        updateEmployeeTable();
+        updateDashboard();
+        
+        showNotification('تم حذف الموظف بنجاح', 'success');
+    } catch (error) {
+        showNotification('خطأ في حذف الموظف', 'error');
+    }
+}
+
+// وظائف إدارة المخزون
+async function addInventoryItem() {
+    if (!hasPermission('write')) {
+        showNotification('ليس لديك صلاحية لإضافة عناصر المخزون', 'error');
+        return;
+    }
+    
+    const name = document.getElementById('itemName').value;
+    const type = document.getElementById('itemType').value;
+    const size = document.getElementById('itemSize').value;
+    const quantity = parseInt(document.getElementById('itemQuantity').value);
+    const minQuantity = parseInt(document.getElementById('itemMinQuantity').value);
+    
+    if (!name || !type || !size || isNaN(quantity) || isNaN(minQuantity)) {
+        showNotification('يرجى ملء جميع الحقول بشكل صحيح', 'error');
+        return;
+    }
+    
+    const item = {
+        name,
+        type,
+        size,
+        quantity,
+        minQuantity,
+        status: quantity > minQuantity ? 'متوفر' : 'ناقص',
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser.username
+    };
+    
+    try {
+        const docId = await saveToFirestore('inventory', item);
+        item.id = docId;
+        inventory.push(item);
+        
+        updateInventoryTable();
+        updateDashboard();
+        closeModal('inventoryModal');
+        clearInventoryForm();
+        
+        showNotification('تم إضافة العنصر بنجاح', 'success');
+    } catch (error) {
+        showNotification('خطأ في إضافة العنصر', 'error');
+    }
+}
+
+async function editInventoryItem(id) {
+    if (!hasPermission('write')) {
+        showNotification('ليس لديك صلاحية لتعديل المخزون', 'error');
+        return;
+    }
+    
+    const item = inventory.find(inv => inv.id === id);
+    if (!item) return;
+    
+    // ملء النموذج بالبيانات الحالية
+    document.getElementById('itemName').value = item.name;
+    document.getElementById('itemType').value = item.type;
+    document.getElementById('itemSize').value = item.size;
+    document.getElementById('itemQuantity').value = item.quantity;
+    document.getElementById('itemMinQuantity').value = item.minQuantity;
+    
+    // تغيير وظيفة الزر للتحديث
+    const saveBtn = document.querySelector('#inventoryModal .btn-primary');
+    saveBtn.textContent = 'تحديث';
+    saveBtn.onclick = () => updateInventoryItem(id);
+    
+    openModal('inventoryModal');
+}
+
+async function updateInventoryItem(id) {
+    const name = document.getElementById('itemName').value;
+    const type = document.getElementById('itemType').value;
+    const size = document.getElementById('itemSize').value;
+    const quantity = parseInt(document.getElementById('itemQuantity').value);
+    const minQuantity = parseInt(document.getElementById('itemMinQuantity').value);
+    
+    if (!name || !type || !size || isNaN(quantity) || isNaN(minQuantity)) {
+        showNotification('يرجى ملء جميع الحقول بشكل صحيح', 'error');
+        return;
+    }
+    
+    const updatedData = {
+        name,
+        type,
+        size,
+        quantity,
+        minQuantity,
+        status: quantity > minQuantity ? 'متوفر' : 'ناقص',
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser.username
+    };
+    
+    try {
+        await updateInFirestore('inventory', id, updatedData);
+        
+        const itemIndex = inventory.findIndex(inv => inv.id === id);
+        if (itemIndex !== -1) {
+            inventory[itemIndex] = { ...inventory[itemIndex], ...updatedData };
+        }
+        
+        updateInventoryTable();
+        updateDashboard();
+        closeModal('inventoryModal');
+        clearInventoryForm();
+        
+        showNotification('تم تحديث العنصر بنجاح', 'success');
+    } catch (error) {
+        showNotification('خطأ في تحديث العنصر', 'error');
+    }
+}
+
+async function deleteInventoryItem(id) {
+    if (!hasPermission('delete')) {
+        showNotification('ليس لديك صلاحية لحذف عناصر المخزون', 'error');
+        return;
+    }
+    
+    if (!confirm('هل أنت متأكد من حذف هذا العنصر؟')) return;
+    
+    try {
+        await deleteFromFirestore('inventory', id);
+        inventory = inventory.filter(inv => inv.id !== id);
+        
+        updateInventoryTable();
+        updateDashboard();
+        
+        showNotification('تم حذف العنصر بنجاح', 'success');
+    } catch (error) {
+        showNotification('خطأ في حذف العنصر', 'error');
+    }
+}
+
+// وظائف تسليم المعدات
+async function addAssignment() {
+    if (!hasPermission('write')) {
+        showNotification('ليس لديك صلاحية لإضافة تسليمات', 'error');
+        return;
+    }
+    
+    const employeeId = document.getElementById('assignmentEmployee').value;
+    const itemId = document.getElementById('assignmentItem').value;
+    const quantity = parseInt(document.getElementById('assignmentQuantity').value);
+    const reason = document.getElementById('assignmentReason').value;
+    
+    if (!employeeId || !itemId || isNaN(quantity) || quantity <= 0) {
+        showNotification('يرجى ملء جميع الحقول بشكل صحيح', 'error');
+        return;
+    }
+    
+    const employee = employees.find(emp => emp.id === employeeId);
+    const item = inventory.find(inv => inv.id === itemId);
+    
+    if (!employee || !item) {
+        showNotification('الموظف أو العنصر غير موجود', 'error');
+        return;
+    }
+    
+    if (item.quantity < quantity) {
+        showNotification('الكمية المطلوبة غير متوفرة في المخزون', 'error');
+        return;
+    }
+    
+    const assignment = {
+        employeeId,
+        employeeName: employee.name,
+        itemId,
+        itemName: item.name,
+        itemSize: item.size,
+        quantity,
+        reason: reason || 'تسليم عادي',
+        date: new Date().toISOString(),
+        assignedBy: currentUser.username
+    };
+    
+    try {
+        // إضافة التسليم
+        const docId = await saveToFirestore('assignments', assignment);
+        assignment.id = docId;
+        assignments.push(assignment);
+        
+        // تحديث المخزون
+        item.quantity -= quantity;
+        item.status = item.quantity > item.minQuantity ? 'متوفر' : 'ناقص';
+        await updateInFirestore('inventory', itemId, {
+            quantity: item.quantity,
+            status: item.status,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser.username
+        });
+        
+        updateAssignmentTable();
+        updateInventoryTable();
+        updateDashboard();
+        closeModal('assignmentModal');
+        clearAssignmentForm();
+        
+        showNotification('تم تسليم المعدة بنجاح', 'success');
+    } catch (error) {
+        showNotification('خطأ في تسليم المعدة', 'error');
+    }
+}
+
+// وظائف مساعدة
+function hasPermission(action) {
+    if (!currentUser) return false;
+    
+    switch (action) {
+        case 'read':
+            return true; // جميع المستخدمين يمكنهم القراءة
+        case 'write':
+            return currentUser.role === 'admin' || currentUser.role === 'user';
+        case 'delete':
+            return currentUser.role === 'admin';
+        default:
+            return false;
+    }
+}
+
+function showNotification(message, type = 'info') {
+    // إنشاء عنصر الإشعار
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    
+    // إضافة الإشعار للصفحة
+    document.body.appendChild(notification);
+    
+    // إزالة الإشعار بعد 3 ثوان
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+function openModal(modalId) {
+    document.getElementById(modalId).style.display = 'block';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+    
+    // إعادة تعيين أزرار الحفظ
+    const saveButtons = document.querySelectorAll('#' + modalId + ' .btn-primary');
+    saveButtons.forEach(btn => {
+        if (modalId === 'employeeModal') {
+            btn.textContent = 'حفظ';
+            btn.onclick = addEmployee;
+        } else if (modalId === 'inventoryModal') {
+            btn.textContent = 'حفظ';
+            btn.onclick = addInventoryItem;
+        }
+    });
+}
+
+function clearEmployeeForm() {
+    document.getElementById('employeeName').value = '';
+    document.getElementById('employeeCompany').value = '';
+    document.getElementById('employeePosition').value = '';
+    document.getElementById('employeePhone').value = '';
+    document.getElementById('employeeShift').value = 'صباحي';
+    document.getElementById('employeeStatus').value = 'نشط';
+}
+
+function clearInventoryForm() {
+    document.getElementById('itemName').value = '';
+    document.getElementById('itemType').value = '';
+    document.getElementById('itemSize').value = '';
+    document.getElementById('itemQuantity').value = '';
+    document.getElementById('itemMinQuantity').value = '';
+}
+
+function clearAssignmentForm() {
+    document.getElementById('assignmentEmployee').value = '';
+    document.getElementById('assignmentItem').value = '';
+    document.getElementById('assignmentQuantity').value = '';
+    document.getElementById('assignmentReason').value = '';
+}
+
+// وظائف تحديث الجداول
+function updateEmployeeTable() {
+    const tbody = document.querySelector('#employeeTable tbody');
+    tbody.innerHTML = '';
+    
+    employees.forEach(employee => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${employee.name}</td>
             <td>${employee.company}</td>
-            <td>${employee.title}</td>
+            <td>${employee.position}</td>
+            <td>${employee.phone || '-'}</td>
+            <td>${employee.shift}</td>
+            <td><span class="status ${employee.status}">${employee.status}</span></td>
             <td>
-                <span class="badge ${employee.status === 'نشط' ? 'bg-success' : employee.status === 'غير نشط' ? 'bg-warning' : 'bg-danger'}">
-                    ${employee.status}
-                </span>
+                <button onclick="editEmployee('${employee.id}')" class="btn btn-sm btn-secondary">تعديل</button>
+                <button onclick="deleteEmployee('${employee.id}')" class="btn btn-sm btn-danger delete-btn" style="display: ${hasPermission('delete') ? 'inline-block' : 'none'}">حذف</button>
             </td>
-            <td>
-                ${hasPermission('edit') ? `
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editEmployee(${employee.id})">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                ` : ''}
-                ${hasPermission('delete') ? `
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteEmployee(${employee.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                ` : ''}
-            </td>
-        </tr>
-    `).join('');
+        `;
+        tbody.appendChild(row);
+    });
 }
 
-function loadInventoryData() {
-    const tableBody = document.getElementById('inventoryTable');
+function updateInventoryTable() {
+    const tbody = document.querySelector('#inventoryTable tbody');
+    tbody.innerHTML = '';
     
-    if (inventory.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">لا توجد بيانات</td></tr>';
-        return;
-    }
-    
-    tableBody.innerHTML = inventory.map(item => `
-        <tr>
-            <td>${item.itemName}</td>
+    inventory.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${item.name}</td>
             <td>${item.type}</td>
             <td>${item.size}</td>
-            <td>${item.currentStock}</td>
+            <td>${item.quantity}</td>
+            <td>${item.minQuantity}</td>
+            <td><span class="status ${item.status}">${item.status}</span></td>
             <td>
-                <span class="badge ${item.status === 'Good' ? 'bg-success' : item.status === 'Low Stock' ? 'bg-warning' : 'bg-danger'}">
-                    ${item.status === 'Good' ? 'متوفر' : item.status === 'Low Stock' ? 'مخزون منخفض' : 'منتهي'}
-                </span>
+                <button onclick="editInventoryItem('${item.id}')" class="btn btn-sm btn-secondary">تعديل</button>
+                <button onclick="deleteInventoryItem('${item.id}')" class="btn btn-sm btn-danger delete-btn" style="display: ${hasPermission('delete') ? 'inline-block' : 'none'}">حذف</button>
             </td>
-            <td>
-                ${hasPermission('edit') ? `
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editItem(${item.id})">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                ` : ''}
-                ${hasPermission('delete') ? `
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                ` : ''}
-            </td>
-        </tr>
-    `).join('');
+        `;
+        tbody.appendChild(row);
+    });
 }
 
-function loadAssignmentsTable() {
-    const tableBody = document.getElementById('assignmentsTable');
+function updateAssignmentTable() {
+    const tbody = document.querySelector('#assignmentTable tbody');
+    tbody.innerHTML = '';
     
-    if (assignments.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">لا توجد عمليات تسليم مسجلة</td></tr>';
-        return;
-    }
-    
-    tableBody.innerHTML = assignments.map(assignment => `
-        <tr>
-            <td>${assignment.date}</td>
+    assignments.forEach(assignment => {
+        const row = document.createElement('tr');
+        const date = new Date(assignment.date).toLocaleDateString('ar-SA');
+        row.innerHTML = `
+            <td>${date}</td>
             <td>${assignment.employeeName}</td>
             <td>${assignment.itemName}</td>
-            <td>${assignment.size}</td>
+            <td>${assignment.itemSize}</td>
             <td>${assignment.quantity}</td>
-            <td>${assignment.reason || '-'}</td>
-        </tr>
-    `).join('');
+            <td>${assignment.reason}</td>
+        `;
+        tbody.appendChild(row);
+    });
 }
 
-function loadEmployeeSelect() {
-    const select = document.getElementById('employeeSelect');
-    select.innerHTML = '<option value="">اختر الموظف</option>';
+function updateDashboard() {
+    // تحديث إحصائيات لوحة التحكم
+    document.getElementById('totalEmployees').textContent = employees.length;
+    document.getElementById('activeEmployees').textContent = employees.filter(emp => emp.status === 'نشط').length;
+    document.getElementById('totalItems').textContent = inventory.length;
+    document.getElementById('lowStockItems').textContent = inventory.filter(item => item.quantity <= item.minQuantity).length;
+    document.getElementById('totalAssignments').textContent = assignments.length;
     
-    employees.filter(e => e.status === 'نشط').forEach(employee => {
+    // تحديث قوائم التسليم
+    updateAssignmentSelects();
+}
+
+function updateAssignmentSelects() {
+    const employeeSelect = document.getElementById('assignmentEmployee');
+    const itemSelect = document.getElementById('assignmentItem');
+    
+    // تحديث قائمة الموظفين
+    employeeSelect.innerHTML = '<option value="">اختر موظف</option>';
+    employees.filter(emp => emp.status === 'نشط').forEach(employee => {
         const option = document.createElement('option');
         option.value = employee.id;
-        option.textContent = employee.name;
-        select.appendChild(option);
+        option.textContent = `${employee.name} - ${employee.company}`;
+        employeeSelect.appendChild(option);
     });
-}
-
-function loadItemSelect() {
-    const select = document.getElementById('itemSelect');
-    select.innerHTML = '<option value="">اختر المعدة</option>';
     
-    inventory.filter(i => i.currentStock > 0).forEach(item => {
+    // تحديث قائمة المعدات
+    itemSelect.innerHTML = '<option value="">اختر معدة</option>';
+    inventory.filter(item => item.quantity > 0).forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
-        option.textContent = `${item.itemName} (${item.size}) - متوفر: ${item.currentStock}`;
-        select.appendChild(option);
+        option.textContent = `${item.name} - ${item.size} (متوفر: ${item.quantity})`;
+        itemSelect.appendChild(option);
     });
 }
 
+// وظائف البحث والتصفية
 function searchEmployees() {
-    const searchTerm = document.getElementById('employeeSearchInput').value.toLowerCase();
-    const filteredEmployees = employees.filter(employee => 
-        employee.name.toLowerCase().includes(searchTerm) ||
-        employee.company.toLowerCase().includes(searchTerm) ||
-        employee.title.toLowerCase().includes(searchTerm)
-    );
+    const searchTerm = document.getElementById('employeeSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#employeeTable tbody tr');
     
-    const tableBody = document.getElementById('employeesTable');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function searchInventory() {
+    const searchTerm = document.getElementById('inventorySearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#inventoryTable tbody tr');
     
-    if (filteredEmployees.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5" class="text-center">لا توجد نتائج</td></tr>';
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+// وظائف استيراد وتصدير البيانات
+async function handleFileImport(event) {
+    if (!hasPermission('write')) {
+        showNotification('ليس لديك صلاحية لاستيراد البيانات', 'error');
         return;
     }
     
-    tableBody.innerHTML = filteredEmployees.map(employee => `
-        <tr>
-            <td>
-                <a href="#" class="employee-name-link" onclick="showEmployeeDetails(${employee.id})">
-                    ${employee.name}
-                </a>
-            </td>
-            <td>${employee.company}</td>
-            <td>${employee.title}</td>
-            <td>
-                <span class="badge ${employee.status === 'نشط' ? 'bg-success' : employee.status === 'غير نشط' ? 'bg-warning' : 'bg-danger'}">
-                    ${employee.status}
-                </span>
-            </td>
-            <td>
-                ${hasPermission('edit') ? `
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editEmployee(${employee.id})">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                ` : ''}
-                ${hasPermission('delete') ? `
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteEmployee(${employee.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                ` : ''}
-            </td>
-        </tr>
-    `).join('');
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            
+            if (jsonData.length === 0) {
+                showNotification('الملف فارغ أو لا يحتوي على بيانات صالحة', 'error');
+                return;
+            }
+            
+            // التحقق من صحة البيانات
+            const validData = jsonData.filter(row => {
+                return row['الاسم'] && row['الشركة'] && row['المسمى الوظيفي'];
+            });
+            
+            if (validData.length === 0) {
+                showNotification('لا توجد بيانات صالحة في الملف. تأكد من وجود الأعمدة: الاسم، الشركة، المسمى الوظيفي', 'error');
+                return;
+            }
+            
+            // عرض معاينة البيانات
+            const preview = validData.slice(0, 5).map(row => 
+                `${row['الاسم']} - ${row['الشركة']} - ${row['المسمى الوظيفي']}`
+            ).join('\n');
+            
+            const confirmImport = confirm(`سيتم استيراد ${validData.length} موظف. معاينة البيانات:\n\n${preview}\n\nهل تريد المتابعة؟`);
+            
+            if (!confirmImport) return;
+            
+            // استيراد البيانات
+            let importedCount = 0;
+            for (const row of validData) {
+                try {
+                    const employee = {
+                        name: row['الاسم'],
+                        company: row['الشركة'],
+                        position: row['المسمى الوظيفي'],
+                        phone: row['رقم الهاتف'] || '',
+                        shift: row['الوردية'] || 'صباحي',
+                        status: row['الحالة'] || 'نشط',
+                        createdAt: new Date().toISOString(),
+                        createdBy: currentUser.username,
+                        importedAt: new Date().toISOString()
+                    };
+                    
+                    const docId = await saveToFirestore('employees', employee);
+                    employee.id = docId;
+                    employees.push(employee);
+                    importedCount++;
+                } catch (error) {
+                    console.error('خطأ في استيراد موظف:', error);
+                }
+            }
+            
+            updateEmployeeTable();
+            updateDashboard();
+            
+            showNotification(`تم استيراد ${importedCount} موظف بنجاح`, 'success');
+            
+        } catch (error) {
+            console.error('خطأ في قراءة الملف:', error);
+            showNotification('خطأ في قراءة الملف. تأكد من أن الملف بصيغة Excel صحيحة', 'error');
+        }
+    };
+    
+    reader.readAsArrayBuffer(file);
+    event.target.value = ''; // إعادة تعيين input
 }
 
-async function saveSettings() {
-    settings.companyName = document.getElementById('companyName').value;
-    settings.lowStockThreshold = parseInt(document.getElementById('lowStockThreshold').value);
-    settings.notificationEmail = document.getElementById('notificationEmail').value;
+// وظائف مسح البيانات
+async function clearAllData() {
+    if (!hasPermission('delete')) {
+        showNotification('ليس لديك صلاحية لمسح البيانات', 'error');
+        return;
+    }
     
-    await saveData();
-    alert('تم حفظ الإعدادات بنجاح');
-}
-
-function generateInventoryReport() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    const confirmation = prompt('لمسح جميع البيانات، اكتب "مسح" في المربع أدناه:');
     
-    // إعداد الخط العربي
-    doc.setFont('helvetica');
-    doc.setFontSize(16);
-    doc.text('Inventory Report', 20, 20);
+    if (confirmation !== 'مسح') {
+        showNotification('تم إلغاء العملية', 'info');
+        return;
+    }
     
-    // إنشاء الجدول
-    const tableData = inventory.map(item => [
-        item.itemName,
-        item.type,
-        item.size,
-        item.currentStock.toString(),
-        item.status === 'Good' ? 'Available' : item.status === 'Low Stock' ? 'Low Stock' : 'Out of Stock'
-    ]);
+    const finalConfirm = confirm('هذا الإجراء سيحذف جميع البيانات نهائياً. هل أنت متأكد؟');
     
-    doc.autoTable({
-        head: [['Item Name', 'Type', 'Size', 'Current Stock', 'Status']],
-        body: tableData,
-        startY: 30
-    });
+    if (!finalConfirm) return;
     
-    doc.save('inventory-report.pdf');
-}
-
-function generateAssignmentsReport() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // إعداد الخط العربي
-    doc.setFont('helvetica');
-    doc.setFontSize(16);
-    doc.text('Assignments Report', 20, 20);
-    
-    // إنشاء الجدول
-    const tableData = assignments.map(assignment => [
-        assignment.date,
-        assignment.employeeName,
-        assignment.itemName,
-        assignment.size,
-        assignment.quantity.toString(),
-        assignment.reason || '-'
-    ]);
-    
-    doc.autoTable({
-        head: [['Date', 'Employee', 'Item', 'Size', 'Quantity', 'Reason']],
-        body: tableData,
-        startY: 30
-    });
-    
-    doc.save('assignments-report.pdf');
-}
-
-// دالة حفظ البيانات في localStorage (احتياطي)
-function saveDataToLocalStorage() {
-    localStorage.setItem('employees', JSON.stringify(employees));
-    localStorage.setItem('inventory', JSON.stringify(inventory));
-    localStorage.setItem('assignments', JSON.stringify(assignments));
-    localStorage.setItem('users', JSON.stringify(users));
-    localStorage.setItem('settings', JSON.stringify(settings));
-}
-
-// دالة تحميل البيانات من localStorage (احتياطي)
-function loadDataFromLocalStorage() {
-    const savedEmployees = localStorage.getItem('employees');
-    const savedInventory = localStorage.getItem('inventory');
-    const savedAssignments = localStorage.getItem('assignments');
-    const savedUsers = localStorage.getItem('users');
-    const savedSettings = localStorage.getItem('settings');
-    
-    if (savedEmployees) employees = JSON.parse(savedEmployees);
-    if (savedInventory) inventory = JSON.parse(savedInventory);
-    if (savedAssignments) assignments = JSON.parse(savedAssignments);
-    if (savedUsers) users = JSON.parse(savedUsers);
-    if (savedSettings) settings = JSON.parse(savedSettings);
-    
-    // إذا لم توجد مستخدمين، استخدم المستخدمين الافتراضيين
-    if (users.length === 0) {
-        users = [...defaultUsers];
+    try {
+        // حذف جميع البيانات من Firebase
+        const collections = ['employees', 'inventory', 'assignments'];
+        
+        for (const collectionName of collections) {
+            const querySnapshot = await getDocs(collection(db, collectionName));
+            const deletePromises = [];
+            
+            querySnapshot.forEach((doc) => {
+                deletePromises.push(deleteFromFirestore(collectionName, doc.id));
+            });
+            
+            await Promise.all(deletePromises);
+        }
+        
+        // مسح البيانات المحلية
+        employees = [];
+        inventory = [];
+        assignments = [];
+        
+        // مسح localStorage
+        localStorage.removeItem('employees');
+        localStorage.removeItem('inventory');
+        localStorage.removeItem('assignments');
+        
+        // تحديث الواجهة
+        updateEmployeeTable();
+        updateInventoryTable();
+        updateAssignmentTable();
+        updateDashboard();
+        
+        showNotification('تم مسح جميع البيانات بنجاح', 'success');
+        
+    } catch (error) {
+        console.error('خطأ في مسح البيانات:', error);
+        showNotification('خطأ في مسح البيانات', 'error');
     }
 }
+
+// وظائف التنقل
+function showSection(sectionId) {
+    // إخفاء جميع الأقسام
+    const sections = document.querySelectorAll('.section');
+    sections.forEach(section => section.style.display = 'none');
+    
+    // إظهار القسم المطلوب
+    document.getElementById(sectionId).style.display = 'block';
+    
+    // تحديث حالة القائمة الجانبية
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => item.classList.remove('active'));
+    
+    const activeItem = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
+    if (activeItem) {
+        activeItem.classList.add('active');
+    }
+}
+
+// تهيئة التطبيق عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('تم تحميل التطبيق');
+    
+    // إظهار قسم لوحة التحكم افتراضياً
+    showSection('dashboard');
+    
+    // إضافة مستمعي الأحداث
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+    
+    // مستمعي أحداث البحث
+    document.getElementById('employeeSearch').addEventListener('input', searchEmployees);
+    document.getElementById('inventorySearch').addEventListener('input', searchInventory);
+    
+    // مستمع حدث استيراد الملفات
+    document.getElementById('fileImport').addEventListener('change', handleFileImport);
+    
+    // مستمع حدث Enter في نموذج تسجيل الدخول
+    document.getElementById('password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            login();
+        }
+    });
+    
+    console.log('تم تهيئة التطبيق بنجاح');
+});
+
+// تصدير الوظائف للاستخدام العام
+window.login = login;
+window.logout = logout;
+window.showSection = showSection;
+window.addEmployee = addEmployee;
+window.editEmployee = editEmployee;
+window.deleteEmployee = deleteEmployee;
+window.addInventoryItem = addInventoryItem;
+window.editInventoryItem = editInventoryItem;
+window.deleteInventoryItem = deleteInventoryItem;
+window.addAssignment = addAssignment;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.clearAllData = clearAllData;
+window.searchEmployees = searchEmployees;
+window.searchInventory = searchInventory;
 
