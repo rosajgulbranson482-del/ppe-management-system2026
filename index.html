@@ -499,35 +499,59 @@
         .employee-name-link {
             color: #667eea;
             text-decoration: none;
-            font-weight: 500;
+            cursor: pointer;
         }
         
         .employee-name-link:hover {
-            color: #764ba2;
             text-decoration: underline;
         }
         
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(100%);
-                transition: transform 0.3s ease;
-            }
-            
-            .sidebar.active {
-                transform: translateX(0);
-            }
-            
-            .main-content {
-                margin-right: 0;
-            }
-            
-            .stats-cards {
-                grid-template-columns: 1fr;
-            }
-            
-            .charts-container {
-                grid-template-columns: 1fr;
-            }
+        .admin-panel {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .admin-panel-header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .admin-panel-body {
+            padding: 30px;
+        }
+        
+        .user-management-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .user-role-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .role-admin {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .role-user {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .role-viewer {
+            background-color: #6c757d;
+            color: white;
         }
     </style>
 </head>
@@ -540,32 +564,25 @@
                 <p>يرجى تسجيل الدخول للمتابعة</p>
             </div>
             
+            <div id="loginError" class="alert alert-danger d-none"></div>
+            
             <form id="loginForm">
                 <div class="form-group">
-                    <label class="form-label">اسم المستخدم</label>
+                    <label for="username" class="form-label">اسم المستخدم</label>
                     <input type="text" id="username" class="form-control" required>
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">كلمة المرور</label>
+                    <label for="password" class="form-label">كلمة المرور</label>
                     <input type="password" id="password" class="form-control" required>
                 </div>
                 
-                <div id="loginError" class="alert alert-danger d-none"></div>
-                
                 <button type="submit" class="btn btn-primary w-100">تسجيل الدخول</button>
             </form>
-            
-            <div class="mt-3 text-center">
-                <small class="text-muted">
-                    المستخدم التجريبي: admin / admin123<br>
-                    أو: user / user123
-                </small>
-            </div>
         </div>
     </div>
 
-    <!-- الواجهة الرئيسية -->
+    <!-- التطبيق الرئيسي -->
     <div id="mainApp" class="d-none">
         <!-- الشريط الجانبي -->
         <div class="sidebar">
@@ -574,7 +591,7 @@
             </div>
             
             <ul class="sidebar-menu">
-                <li class="active" data-page="dashboard">
+                <li data-page="dashboard" class="active">
                     <a href="#"><i class="fas fa-tachometer-alt"></i> لوحة التحكم</a>
                 </li>
                 <li data-page="employees">
@@ -592,7 +609,10 @@
                 <li data-page="settings">
                     <a href="#"><i class="fas fa-cog"></i> الإعدادات</a>
                 </li>
-                <li id="logoutBtn">
+                <li data-page="admin" id="adminMenuItem" style="display: none;">
+                    <a href="#"><i class="fas fa-user-shield"></i> إدارة المستخدمين</a>
+                </li>
+                <li id="logoutMenuItem">
                     <a href="#"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a>
                 </li>
             </ul>
@@ -604,31 +624,32 @@
             <div class="header">
                 <h1>مرحباً بك في نظام إدارة معدات الحماية الشخصية</h1>
                 <div class="user-info">
-                    <span>مرحباً، <strong id="currentUserName"></strong></span>
-                    <button id="logoutBtn2" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
-                    </button>
+                    <span>مرحباً، <span id="currentUserName"></span></span>
+                    <button id="logoutBtn" class="logout-btn">تسجيل الخروج</button>
                 </div>
             </div>
 
             <!-- لوحة التحكم -->
-            <div id="dashboardPage" class="tab-content active">
+            <div id="dashboard" class="tab-content active">
                 <div class="stats-cards">
                     <div class="stat-card primary">
-                        <i class="fas fa-boxes"></i>
-                        <h3 id="totalItems">0</h3>
-                        <p>إجمالي المعدات</p>
+                        <i class="fas fa-users"></i>
+                        <h3 id="totalEmployees">0</h3>
+                        <p>إجمالي الموظفين</p>
                     </div>
+                    
                     <div class="stat-card success">
                         <i class="fas fa-check-circle"></i>
                         <h3 id="availableItems">0</h3>
                         <p>معدات متوفرة</p>
                     </div>
+                    
                     <div class="stat-card warning">
                         <i class="fas fa-exclamation-triangle"></i>
                         <h3 id="lowStockItems">0</h3>
                         <p>مخزون منخفض</p>
                     </div>
+                    
                     <div class="stat-card danger">
                         <i class="fas fa-times-circle"></i>
                         <h3 id="outOfStockItems">0</h3>
@@ -641,42 +662,44 @@
                         <h5>آخر عمليات التسليم</h5>
                     </div>
                     <div class="content-card-body">
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>الموظف</th>
-                                        <th>المعدة</th>
-                                        <th>الكمية</th>
-                                        <th>التاريخ</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="recentAssignmentsTable">
-                                </tbody>
-                            </table>
-                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>الموظف</th>
+                                    <th>المعدة</th>
+                                    <th>الكمية</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentAssignmentsTable">
+                                <tr>
+                                    <td colspan="4" class="text-center">لا توجد عمليات تسليم مسجلة</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
                 <div class="charts-container">
                     <div class="chart-card">
-                        <h6>حالة المخزون</h6>
-                        <canvas id="inventoryChart"></canvas>
-                    </div>
-                    <div class="chart-card">
                         <h6>حالة الموظفين</h6>
-                        <canvas id="employeesChart"></canvas>
+                        <canvas id="employeeStatusChart"></canvas>
+                    </div>
+                    
+                    <div class="chart-card">
+                        <h6>حالة المخزون</h6>
+                        <canvas id="inventoryStatusChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- صفحة الموظفين -->
-            <div id="employeesPage" class="tab-content">
+            <!-- إدارة الموظفين -->
+            <div id="employees" class="tab-content">
                 <div class="content-card">
                     <div class="content-card-header">
                         <h5>إدارة الموظفين</h5>
                         <div>
-                            <button id="importEmployeesBtn" class="btn btn-secondary me-2">
+                            <button id="importEmployeesBtn" class="btn btn-success me-2">
                                 <i class="fas fa-file-import"></i> استيراد من Excel
                             </button>
                             <button id="addEmployeeBtn" class="btn btn-primary">
@@ -686,92 +709,31 @@
                     </div>
                     <div class="content-card-body">
                         <div class="search-box">
-                            <input type="text" id="employeeSearchInput" class="form-control" placeholder="البحث عن موظف...">
+                            <input type="text" id="employeeSearchInput" placeholder="البحث عن موظف..." class="form-control">
                         </div>
                         
-                        <div class="table-responsive">
-                            <table id="employeesTable" class="table">
-                                <thead>
-                                    <tr>
-                                        <th>الاسم</th>
-                                        <th>الشركة</th>
-                                        <th>المسمى الوظيفي</th>
-                                        <th>الحالة</th>
-                                        <th>الإجراءات</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                </tbody>
-                            </table>
-                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>الاسم</th>
+                                    <th>الشركة</th>
+                                    <th>المسمى الوظيفي</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeesTable">
+                                <tr>
+                                    <td colspan="5" class="text-center">لا توجد بيانات</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            <!-- صفحة تفاصيل الموظف -->
-            <div id="employeeDetailsPage" class="tab-content">
-                <button class="back-btn" onclick="showPage('employees')">
-                    <i class="fas fa-arrow-right"></i> العودة للموظفين
-                </button>
-                
-                <div class="employee-details-card">
-                    <div class="employee-details-header">
-                        <h4>تفاصيل الموظف</h4>
-                    </div>
-                    <div class="employee-details-body">
-                        <div class="detail-row">
-                            <span class="detail-label">الاسم:</span>
-                            <span class="detail-value" id="employeeDetailName"></span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">الشركة:</span>
-                            <span class="detail-value" id="employeeDetailCompany"></span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">المسمى الوظيفي:</span>
-                            <span class="detail-value" id="employeeDetailTitle"></span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">رقم الهاتف:</span>
-                            <span class="detail-value" id="employeeDetailPhone"></span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">الوردية:</span>
-                            <span class="detail-value" id="employeeDetailShift"></span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">الحالة:</span>
-                            <span class="detail-value" id="employeeDetailStatus"></span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="content-card">
-                    <div class="content-card-header">
-                        <h5>المعدات المسلمة</h5>
-                    </div>
-                    <div class="content-card-body">
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>المعدة</th>
-                                        <th>المقاس</th>
-                                        <th>الكمية</th>
-                                        <th>تاريخ التسليم</th>
-                                        <th>السبب</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="employeeEquipmentTable">
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- صفحة المخزون -->
-            <div id="inventoryPage" class="tab-content">
+            <!-- إدارة المخزون -->
+            <div id="inventory" class="tab-content">
                 <div class="content-card">
                     <div class="content-card-header">
                         <h5>إدارة المخزون</h5>
@@ -780,188 +742,209 @@
                         </button>
                     </div>
                     <div class="content-card-body">
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>اسم المعدة</th>
-                                        <th>النوع</th>
-                                        <th>المقاس</th>
-                                        <th>المخزون الوارد</th>
-                                        <th>إجمالي المسلم</th>
-                                        <th>المخزون الحالي</th>
-                                        <th>الحالة</th>
-                                        <th>الإجراءات</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inventoryTable">
-                                </tbody>
-                            </table>
-                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>اسم المعدة</th>
+                                    <th>النوع</th>
+                                    <th>المقاس</th>
+                                    <th>المخزون الحالي</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventoryTable">
+                                <tr>
+                                    <td colspan="6" class="text-center">لا توجد بيانات</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            <!-- صفحة تسليم المعدات -->
-            <div id="assignmentsPage" class="tab-content">
+            <!-- تسليم المعدات -->
+            <div id="assignments" class="tab-content">
                 <div class="content-card">
                     <div class="content-card-header">
-                        <h5>تسليم معدة جديدة</h5>
+                        <h5>تسليم المعدات</h5>
                     </div>
                     <div class="content-card-body">
-                        <form id="assignmentForm">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label class="form-label">الموظف</label>
-                                        <select id="employeeSelect" class="form-control" required>
-                                            <option value="">اختر موظف...</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label class="form-label">المعدة</label>
-                                        <select id="itemSelect" class="form-control" required>
-                                            <option value="">اختر معدة...</option>
-                                        </select>
-                                    </div>
-                                </div>
+                        <form id="assignmentForm" class="row g-3 mb-4">
+                            <div class="col-md-3">
+                                <label for="employeeSelect" class="form-label">الموظف</label>
+                                <select id="employeeSelect" class="form-control" required>
+                                    <option value="">اختر الموظف</option>
+                                </select>
                             </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label class="form-label">الكمية</label>
-                                        <input type="number" id="assignmentQuantity" class="form-control" min="1" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label class="form-label">سبب التسليم</label>
-                                        <select id="assignmentReason" class="form-control" required>
-                                            <option value="new">تسليم جديد</option>
-                                            <option value="replacement">استبدال</option>
-                                            <option value="lost">فقدان</option>
-                                            <option value="damaged">تلف</option>
-                                        </select>
-                                    </div>
-                                </div>
+                            
+                            <div class="col-md-3">
+                                <label for="itemSelect" class="form-label">المعدة</label>
+                                <select id="itemSelect" class="form-control" required>
+                                    <option value="">اختر المعدة</option>
+                                </select>
                             </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-check"></i> تسليم المعدة
-                            </button>
+                            
+                            <div class="col-md-2">
+                                <label for="assignmentQuantity" class="form-label">الكمية</label>
+                                <input type="number" id="assignmentQuantity" class="form-control" min="1" required>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label for="assignmentReason" class="form-label">السبب</label>
+                                <input type="text" id="assignmentReason" class="form-control" placeholder="سبب التسليم">
+                            </div>
+                            
+                            <div class="col-md-1">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">تسليم</button>
+                            </div>
                         </form>
+                        
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>الموظف</th>
+                                    <th>المعدة</th>
+                                    <th>المقاس</th>
+                                    <th>الكمية</th>
+                                    <th>السبب</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assignmentsTable">
+                                <tr>
+                                    <td colspan="6" class="text-center">لا توجد عمليات تسليم مسجلة</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+            </div>
 
+            <!-- التقارير -->
+            <div id="reports" class="tab-content">
                 <div class="content-card">
                     <div class="content-card-header">
-                        <h5>سجل التسليمات</h5>
+                        <h5>التقارير</h5>
                     </div>
                     <div class="content-card-body">
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>الموظف</th>
-                                        <th>المعدة</th>
-                                        <th>الكمية</th>
-                                        <th>التاريخ</th>
-                                        <th>السبب</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="assignmentsTable">
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- صفحة التقارير -->
-            <div id="reportsPage" class="tab-content">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="content-card">
-                            <div class="content-card-header">
-                                <h5>تقرير المخزون</h5>
-                            </div>
-                            <div class="content-card-body">
-                                <p>تصدير تقرير شامل لحالة المخزون الحالية</p>
-                                <button id="exportInventoryPdfBtn" class="btn btn-primary">
-                                    <i class="fas fa-file-pdf"></i> تصدير PDF
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="content-card">
-                            <div class="content-card-header">
-                                <h5>تقرير التسليمات</h5>
-                            </div>
-                            <div class="content-card-body">
-                                <div class="form-group">
-                                    <label class="form-label">من تاريخ</label>
-                                    <input type="date" id="reportDateFrom" class="form-control">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h6>تقرير المخزون</h6>
+                                        <p>تصدير تقرير شامل لحالة المخزون الحالية</p>
+                                        <button id="exportInventoryPdfBtn" class="btn btn-primary">
+                                            <i class="fas fa-file-pdf"></i> تصدير PDF
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label class="form-label">إلى تاريخ</label>
-                                    <input type="date" id="reportDateTo" class="form-control">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h6>تقرير التسليمات</h6>
+                                        <p>تصدير تقرير شامل لجميع عمليات التسليم</p>
+                                        <button id="exportAssignmentsPdfBtn" class="btn btn-primary">
+                                            <i class="fas fa-file-pdf"></i> تصدير PDF
+                                        </button>
+                                    </div>
                                 </div>
-                                <button id="exportAssignmentsPdfBtn" class="btn btn-primary">
-                                    <i class="fas fa-file-pdf"></i> تصدير PDF
-                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- صفحة الإعدادات -->
-            <div id="settingsPage" class="tab-content">
+            <!-- الإعدادات -->
+            <div id="settings" class="tab-content">
                 <div class="content-card">
                     <div class="content-card-header">
                         <h5>إعدادات النظام</h5>
                     </div>
                     <div class="content-card-body">
                         <form id="settingsForm">
-                            <div class="form-group">
-                                <label class="form-label">اسم الشركة</label>
-                                <input type="text" id="companyName" class="form-control">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="companyName" class="form-label">اسم الشركة</label>
+                                    <input type="text" id="companyName" class="form-control">
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label for="lowStockThreshold" class="form-label">حد المخزون المنخفض</label>
+                                    <input type="number" id="lowStockThreshold" class="form-control" min="1">
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label for="notificationEmail" class="form-label">بريد التنبيهات</label>
+                                    <input type="email" id="notificationEmail" class="form-control">
+                                </div>
+                                
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary">حفظ الإعدادات</button>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">حد المخزون المنخفض</label>
-                                <input type="number" id="lowStockThreshold" class="form-control" min="1">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">البريد الإلكتروني للإشعارات</label>
-                                <input type="email" id="notificationEmail" class="form-control">
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> حفظ الإعدادات
-                            </button>
                         </form>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="content-card">
+                            <div class="content-card-header">
+                                <h5>إدارة البيانات</h5>
+                            </div>
+                            <div class="content-card-body">
+                                <div class="alert alert-warning">
+                                    <strong>تحذير:</strong> هذا الإجراء سيحذف جميع البيانات ولا يمكن التراجع عنه.
+                                </div>
+                                <button id="clearAllDataBtn" class="btn btn-danger">
+                                    <i class="fas fa-trash"></i> مسح جميع البيانات
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="content-card">
-                    <div class="content-card-header">
-                        <h5>إدارة البيانات</h5>
+            <!-- إدارة المستخدمين (للمدير فقط) -->
+            <div id="admin" class="tab-content">
+                <div class="admin-panel">
+                    <div class="admin-panel-header">
+                        <h5><i class="fas fa-user-shield"></i> لوحة تحكم المدير</h5>
                     </div>
-                    <div class="content-card-body">
-                        <div class="alert alert-danger">
-                            <strong>تحذير:</strong> هذا الإجراء سيحذف جميع البيانات ولا يمكن التراجع عنه.
+                    <div class="admin-panel-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6>إدارة المستخدمين</h6>
+                                <div id="usersManagementContainer">
+                                    <!-- سيتم ملء هذا القسم ديناميكياً -->
+                                </div>
+                                
+                                <button id="addUserBtn" class="btn btn-primary mt-3">
+                                    <i class="fas fa-user-plus"></i> إضافة مستخدم جديد
+                                </button>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <h6>إحصائيات النظام</h6>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <p><strong>إجمالي المستخدمين:</strong> <span id="totalUsersCount">0</span></p>
+                                        <p><strong>المديرين:</strong> <span id="adminUsersCount">0</span></p>
+                                        <p><strong>المستخدمين العاديين:</strong> <span id="regularUsersCount">0</span></p>
+                                        <p><strong>المشاهدين:</strong> <span id="viewerUsersCount">0</span></p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <button id="clearAllDataBtn" class="btn btn-danger">
-                            <i class="fas fa-trash"></i> مسح جميع البيانات
-                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- نافذة إضافة موظف -->
+    <!-- نافذة إضافة/تعديل موظف -->
     <div id="addEmployeeModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -971,36 +954,42 @@
             <div class="modal-body">
                 <form id="addEmployeeForm">
                     <input type="hidden" id="editEmployeeId">
+                    
                     <div class="form-group">
-                        <label class="form-label">الاسم</label>
+                        <label for="newEmployeeName" class="form-label">الاسم</label>
                         <input type="text" id="newEmployeeName" class="form-control" required>
                     </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">الشركة</label>
+                        <label for="newEmployeeCompany" class="form-label">الشركة</label>
                         <input type="text" id="newEmployeeCompany" class="form-control" required>
                     </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">المسمى الوظيفي</label>
+                        <label for="newEmployeeTitle" class="form-label">المسمى الوظيفي</label>
                         <input type="text" id="newEmployeeTitle" class="form-control" required>
                     </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">رقم الهاتف</label>
+                        <label for="newEmployeeTel" class="form-label">رقم الهاتف</label>
                         <input type="tel" id="newEmployeeTel" class="form-control">
                     </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">الوردية</label>
+                        <label for="newEmployeeShift" class="form-label">الوردية</label>
                         <select id="newEmployeeShift" class="form-control" required>
                             <option value="صباحي">صباحي</option>
                             <option value="مسائي">مسائي</option>
                             <option value="ليلي">ليلي</option>
                         </select>
                     </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">الحالة</label>
+                        <label for="newEmployeeStatus" class="form-label">الحالة</label>
                         <select id="newEmployeeStatus" class="form-control" required>
-                            <option value="Active">نشط</option>
-                            <option value="Inactive">غير نشط</option>
-                            <option value="Left">ترك العمل</option>
+                            <option value="نشط">نشط</option>
+                            <option value="غير نشط">غير نشط</option>
+                            <option value="ترك العمل">ترك العمل</option>
                         </select>
                     </div>
                 </form>
@@ -1012,7 +1001,7 @@
         </div>
     </div>
 
-    <!-- نافذة إضافة معدة -->
+    <!-- نافذة إضافة/تعديل معدة -->
     <div id="addItemModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1022,25 +1011,30 @@
             <div class="modal-body">
                 <form id="addItemForm">
                     <input type="hidden" id="editItemId">
+                    
                     <div class="form-group">
-                        <label class="form-label">اسم المعدة</label>
+                        <label for="newItemName" class="form-label">اسم المعدة</label>
                         <input type="text" id="newItemName" class="form-control" required>
                     </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">النوع</label>
+                        <label for="newItemType" class="form-label">النوع</label>
                         <select id="newItemType" class="form-control" required>
+                            <option value="">اختر النوع</option>
                             <option value="خوذة">خوذة</option>
                             <option value="نظارات">نظارات</option>
                             <option value="قفازات">قفازات</option>
                             <option value="أحذية">أحذية</option>
-                            <option value="ملابس">ملابس</option>
-                            <option value="أقنعة">أقنعة</option>
+                            <option value="سترة">سترة</option>
+                            <option value="كمامة">كمامة</option>
                             <option value="أخرى">أخرى</option>
                         </select>
                     </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">المقاس</label>
+                        <label for="newItemSize" class="form-label">المقاس</label>
                         <select id="newItemSize" class="form-control" required>
+                            <option value="">اختر المقاس</option>
                             <option value="XS">XS</option>
                             <option value="S">S</option>
                             <option value="M">M</option>
@@ -1050,12 +1044,14 @@
                             <option value="موحد">موحد</option>
                         </select>
                     </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">المخزون الوارد</label>
+                        <label for="newItemStockIn" class="form-label">الكمية الواردة</label>
                         <input type="number" id="newItemStockIn" class="form-control" min="0" required>
                     </div>
+                    
                     <div class="form-group">
-                        <label class="form-label">إجمالي المسلم</label>
+                        <label for="newItemTotalIssues" class="form-label">إجمالي المُسلم</label>
                         <input type="number" id="newItemTotalIssues" class="form-control" min="0" value="0">
                     </div>
                 </form>
@@ -1076,18 +1072,62 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">اختر ملف Excel</label>
+                    <label for="importFile" class="form-label">اختر ملف Excel</label>
                     <input type="file" id="importFile" class="form-control" accept=".xlsx,.xls">
                 </div>
-                <div class="alert alert-info">
-                    <strong>تنسيق الملف المطلوب:</strong><br>
-                    الأعمدة: الاسم، الشركة، المسمى الوظيفي، الهاتف، الوردية، الحالة
+                
+                <div id="importPreview" class="mt-3" style="display: none;">
+                    <h6>معاينة البيانات:</h6>
+                    <div id="importPreviewTable"></div>
                 </div>
-                <div id="importPreview"></div>
             </div>
             <div class="modal-footer">
                 <button id="cancelImportBtn" class="btn btn-secondary">إلغاء</button>
-                <button id="confirmImportBtn" class="btn btn-primary">تأكيد الاستيراد</button>
+                <button id="confirmImportBtn" class="btn btn-primary" style="display: none;">تأكيد الاستيراد</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة مستخدم -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>إضافة مستخدم جديد</h5>
+                <button id="closeAddUserModal" class="close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm">
+                    <input type="hidden" id="editUserId">
+                    
+                    <div class="form-group">
+                        <label for="newUserName" class="form-label">الاسم الكامل</label>
+                        <input type="text" id="newUserName" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newUsername" class="form-label">اسم المستخدم</label>
+                        <input type="text" id="newUsername" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newUserPassword" class="form-label">كلمة المرور</label>
+                        <input type="password" id="newUserPassword" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newUserRole" class="form-label">الصلاحية</label>
+                        <select id="newUserRole" class="form-control" required>
+                            <option value="">اختر الصلاحية</option>
+                            <option value="admin">مدير</option>
+                            <option value="user">مستخدم عادي</option>
+                            <option value="viewer">مشاهد فقط</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelAddUser" class="btn btn-secondary">إلغاء</button>
+                <button type="submit" form="addUserForm" class="btn btn-primary">حفظ</button>
             </div>
         </div>
     </div>
@@ -1095,7 +1135,7 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Firebase Script -->
+    <!-- ملف JavaScript الرئيسي -->
     <script src="firebase-script.js"></script>
 </body>
 </html>
